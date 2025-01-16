@@ -54,7 +54,7 @@ to setup-distribution-center
     setxy -3.5 -16.5                   ; Placer la tortue au centre de la grille
     set shape "building store"          ; Définir la forme en carré
     set color yellow           ; Colorer la tortue en jaune pour le centre de distribution
-    set size 3               ; Agrandir la taille de la tortue
+    set size 2             ; Agrandir la taille de la tortue
   ]
 
   ; Marquer le patch central comme un centre de distribution
@@ -71,7 +71,7 @@ to setup-vehicles
   create-vehicles 5 [
     set shape "car"
     set color red             ; Red for cars
-    set size 3                ; Size of the car
+      set size 0.2                ; Size of the car
     setxy -3.5 -16.5         ; Set to the distribution center
     set heading random 360    ; Random orientation
   ]
@@ -80,7 +80,7 @@ to setup-vehicles
   create-vehicles 5 [
     set shape "truck"
     set color red             ; Red for trucks
-    set size 3                ; Size of the truck
+    set size 0.2                ; Size of the truck
     setxy -3.5 -16.5         ; Set to the distribution center
     set heading random 360    ; Random orientation
   ]
@@ -97,32 +97,32 @@ to setup-vehicles
     if vehicle-type = 0 [
       set shape "car"            ; Car
       set color orange            ; Pink for cars
-      set size 2                ; Size of the car
+        set size 1.2               ; Size of the car
     ]
     if vehicle-type = 1 [
       set shape "truck"          ; Truck
       set color orange            ; Blue for trucks
-      set size 2                ; Size of the truck
+       set size 1.5              ; Size of the truck
     ]
     if vehicle-type = 2 [
       set shape "car"     ; Motorcycle
       set color orange           ; Green for motorcycles
-      set size 2                ; Size of the motorcycle
+        set size 1.2                ; Size of the motorcycle
     ]
     if vehicle-type = 3 [
       set shape "truck"          ; Truck
       set color orange           ; Green for trucks
-      set size 2                ; Size of the truck
+        set size 1.5               ; Size of the truck
     ]
     if vehicle-type = 4 [
       set shape "car"            ; Car
       set color orange          ; Orange for cars
-      set size 2                ; Size of the car
+        set size 1.2               ; Size of the car
     ]
     if vehicle-type = 5 [
       set shape "truck"         ; Truck
       set color orange            ; Gray for trucks
-      set size 2                ; Size of the truck
+        set size 1.2               ; Size of the truck
     ]
   ]
 end
@@ -132,11 +132,11 @@ end
 ; --- Positionner les drones sur des routes ---
 ; --- Positionner les drones sur le centre de distribution ---
 to setup-drones
-  create-drones 5 [
+  create-drones nbrDrones [
     setxy -3.5 -16.5     ; Placer les drones au centre de distribution
     set size 2
     set shape "hawk"      ; Forme des drones en "circle"
-    set color red        ; Couleur bleue pour les drones
+    set color yellow        ; Couleur bleue pour les drones
     set heading random 360 ; Orientation aléatoire
   ]
 end
@@ -144,29 +144,23 @@ end
 
 ; --- Positionner les clients (zones de livraison) ---
 to setup-clients
-  create-clients 200 [               ; Create 200 clients
-    setxy random-xcor random-ycor    ; Position clients randomly
-    while [not (terrain-type = "road" or terrain-type = "intersection")] [  ; Ensure clients are on roads or intersections
-      setxy random-xcor random-ycor
+ ; Placement de maisons (en bleu clair)
+  ask patches [
+    if (pxcor mod 5 != 0 and pycor mod 5 != 0) [
+      ifelse random-float 1 < 0.6 [
+        set pcolor black  ; Maisons (40% des patches non-routiers)
+      ][
+        set pcolor blue  ; Espaces vides (60% restant)
+      ]
     ]
-    set shape "house"                ; Default shape is "house"
-    set color green                  ; Default color is green
-    set size 2                     ; Default size
-    set label ""                     ; No label for clients
-  ]
 
-  create-clients 4 [               ; Create 200 clients
-    setxy random-xcor random-ycor    ; Position clients randomly
-    while [not (terrain-type = "")] [  ; Ensure clients are on roads or intersections
-      setxy random-xcor random-ycor
-    ]
-    set shape "house"                ; Default shape is "house"
-    set color red                  ; Default color is green
-    set size 2                     ; Default size
-    set label ""                     ; No label for clients
   ]
+ ; Choisir aléatoirement 10 patches avec pcolor bleu et les changer en jaune
+ask n-of nbrClientsInitial patches with [pcolor = blue] [
+  set pcolor yellow
+]
+
 end
-
 
 
 ; --- Exécution de la simulation ---
@@ -174,17 +168,27 @@ to go
   ; Faire avancer les véhicules en fonction de la densité du trafic
   ask vehicles [
     let speed 1
+    ; Vérifier la densité de trafic sur le patch devant
     if patch-ahead 1 != nobody [
       let current-traffic [traffic-level] of patch-ahead 1
       if current-traffic = 1 [set speed 0.5] ; Trafic faible
       if current-traffic = 2 [set speed 0.3] ; Trafic moyen
       if current-traffic = 3 [set speed 0.1] ; Trafic élevé
     ]
+
     ; Vérifier si le patch devant est une route ou une intersection
-    if [terrain-type] of patch-ahead 1 = "road" [; or [terrain-type] of patch-ahead 1 = "intersection"
-      fd speed
+    if [terrain-type] of patch-ahead 1 = "road" or [terrain-type] of patch-ahead 1 = "intersection" [
+      ; Ajouter une chance aléatoire de faire marche arrière
+      let move-backward? random 10 ; 10 chance to move backward (adjust the number for more or less probability)
+      ifelse move-backward? < 1 [
+        bk speed ; Faire marche arrière
+      ]
+      [
+        fd speed ; Continuer en avant
+      ]
     ]
-       ; Si le patch devant est une intersection, tourner aléatoirement à gauche ou à droite
+
+    ; Si le patch devant est une intersection, tourner aléatoirement à gauche ou à droite
     if [terrain-type] of patch-ahead 1 = "intersection" [
       let turn-direction random 3  ; Choisir aléatoirement 0 ou 1
       if turn-direction = 0 [
@@ -194,12 +198,12 @@ to go
         lt 90  ; Tourner à gauche
       ]
       if turn-direction = 3 [
-        fd speed  ; Tourner à droite
+        fd speed  ; Continuer tout droit
       ]
     ]
 
-
-     if not( [terrain-type] of patch-ahead 1 = "road" or [terrain-type] of patch-ahead 1 = "intersection" )[
+    ; Si le terrain n'est ni une route ni une intersection, tourner aléatoirement
+    if not( [terrain-type] of patch-ahead 1 = "road" or [terrain-type] of patch-ahead 1 = "intersection" ) [
       right random 90  ; Tourner à droite de façon aléatoire
       left random 90   ; Ou tourner à gauche de façon aléatoire
     ]
@@ -214,13 +218,13 @@ to go
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-284
-19
-1345
-691
+573
+27
+1391
+546
 -1
 -1
-13.0
+10.0
 1
 10
 1
@@ -275,49 +279,96 @@ NIL
 1
 
 SLIDER
+35
+113
+207
+146
+nbrClientsInitial
+nbrClientsInitial
+1
+100
+16.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+37
+168
+209
+201
+nbrDrones
+nbrDrones
+0
+100
+13.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
 42
-202
+223
 214
-235
-nbrClients
-nbrClients
-1
+256
+nbrVehicules
+nbrVehicules
+0
 100
-50.0
+10.0
 1
 1
 NIL
 HORIZONTAL
 
-SLIDER
-45
-260
-217
-293
-nbrDrones
-nbrDrones
-0
-100
-50.0
+MONITOR
+55
+292
+214
+337
+Nombre de commandes
+count( patches with [ pcolor = yellow ])
+17
 1
-1
-NIL
-HORIZONTAL
+11
 
-SLIDER
-50
-315
-222
-348
-nbrVehicules
-nbrVehicules
-0
-100
-50.0
-1
-1
+PLOT
+32
+353
+232
+503
+Nombre de commandes livrées par le temps
+temps
+commandes livrées
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot count turtles"
+
+PLOT
+37
+523
+237
+673
+comparaison de temps de livraison drones/vehicules
 NIL
-HORIZONTAL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot count turtles"
 
 @#$#@#$#@
 ## WHAT IS IT?

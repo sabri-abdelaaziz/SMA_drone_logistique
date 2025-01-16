@@ -218,10 +218,10 @@ to go
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-284
-19
-1345
-691
+350
+10
+1411
+682
 -1
 -1
 13.0
@@ -287,7 +287,7 @@ nbrClientsInitial
 nbrClientsInitial
 1
 100
-30.0
+16.0
 1
 1
 NIL
@@ -302,7 +302,7 @@ nbrDrones
 nbrDrones
 0
 100
-2.0
+13.0
 1
 1
 NIL

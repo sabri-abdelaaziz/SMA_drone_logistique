@@ -18,7 +18,7 @@ patches-own [
 ; --- Initialisation des propriétés des patches ---
 to setup
   clear-all
-  set number-of-packages 20  ; Nombre initial de colis
+  set number-of-packages 19  ; Nombre initial de colis
   set traffic-density 2     ; Densité de trafic initiale (sur une échelle de 0 à 3)
   setup-patches             ; Configurer les routes, intersections, bâtiments et clients
   setup-distribution-center ; Configurer le centre de distribution au centre

@@ -8,10 +8,9 @@ globals [
 breed [vehicles vehicle]    ; Les véhicules (voitures ou camions)
 breed [drones drone]        ; Les drones
 breed [clients client]      ; Les clients (zones de livraison)
-breed [houses house]      ; Les clients (zones de livraison)
 
 patches-own [
-  terrain-type  ; Type de terrain : route, intersection, bâtiment, centre de distribution, client
+  terrain-type  ; Type de terrain : route, intersection, bâtiment, centre de distribution, client, zone-1, zone-2
   traffic-level ; Niveau de trafic (de 0 à 3)
 ]
 
@@ -19,12 +18,13 @@ patches-own [
 to setup
   clear-all
   set number-of-packages 20  ; Nombre initial de colis
-  set traffic-density 2     ; Densité de trafic initiale (sur une échelle de 0 à 3)
-  setup-patches             ; Configurer les routes, intersections, bâtiments et clients
-  setup-distribution-center ; Configurer le centre de distribution au centre
-  setup-vehicles            ; Positionner les véhicules
-  setup-drones              ; Positionner les drones
-  setup-clients             ; Positionner les clients (zones de livraison)
+  set traffic-density 2      ; Densité de trafic initiale (sur une échelle de 0 à 3)
+  setup-patches              ; Configurer les routes, intersections, bâtiments et clients
+  setup-distribution-center  ; Configurer le centre de distribution au centre
+  setup-zones                ; Configurer les zones pour drones et voitures
+  setup-vehicles             ; Positionner les véhicules
+  setup-drones               ; Positionner les drones
+  setup-clients              ; Positionner les clients (zones de livraison)
   reset-ticks
 end
 
@@ -52,171 +52,100 @@ end
 to setup-distribution-center
   create-turtles 1 [
     setxy -3.5 -16.5                   ; Placer la tortue au centre de la grille
-    set shape "building store"          ; Définir la forme en carré
-    set color yellow           ; Colorer la tortue en jaune pour le centre de distribution
-    set size 2             ; Agrandir la taille de la tortue
+    set shape "building store"         ; Définir la forme
+    set color yellow                   ; Colorer la tortue en jaune pour le centre de distribution
+    set size 2                         ; Agrandir la taille de la tortue
   ]
 
-  ; Marquer le patch central comme un centre de distribution
   let center-patch patch -3.5 -16.5
   ask center-patch [
     set terrain-type "distribution-center"  ; Marquer ce patch comme un centre de distribution
-    set pcolor green                     ; Colorier le patch en jaune
+    set pcolor green                        ; Colorier le patch en vert
   ]
 end
 
-; --- Positionner les véhicules sur des routes ---
+; --- Configurer deux zones : Zone 1 (drones) et Zone 2 (voitures) ---
+to setup-zones
+  ask patches [
+    let distance-to-center distancexy -3.5 -16.5
+    if distance-to-center < 15 [
+      set pcolor cyan                      ; Zone 1 : cyan
+      set terrain-type "zone-1"
+    ]
+    if distance-to-center >= 15 and distance-to-center < 30 [
+      set pcolor magenta                   ; Zone 2 : magenta
+      set terrain-type "zone-2"
+    ]
+  ]
+end
+
+; --- Positionner les véhicules ---
 to setup-vehicles
-  ; Create red cars at the distribution center
-  create-vehicles 5 [
-    set shape "car"
-    set color red             ; Red for cars
-      set size 0.2                ; Size of the car
-    setxy -3.5 -16.5         ; Set to the distribution center
-    set heading random 360    ; Random orientation
-  ]
-
-  ; Create red trucks at the distribution center
-  create-vehicles 5 [
+  create-vehicles 10 [
     set shape "truck"
-    set color red             ; Red for trucks
-    set size 0.2                ; Size of the truck
-    setxy -3.5 -16.5         ; Set to the distribution center
-    set heading random 360    ; Random orientation
-  ]
-
-  ; Create other vehicles at random positions on roads
-  create-vehicles 250 [
-    setxy random-xcor random-ycor    ; Position vehicles randomly
-    while [terrain-type != "road"] [  ; Ensure they are on a road
-      setxy random-xcor random-ycor
-    ]
-
-    ; Randomly assign other vehicle types (e.g., trucks and motorcycles)
-    let vehicle-type random 5  ; Randomly choose 0, 1, or 2 for vehicle type
-    if vehicle-type = 0 [
-      set shape "car"            ; Car
-      set color orange            ; Pink for cars
-        set size 1.2               ; Size of the car
-    ]
-    if vehicle-type = 1 [
-      set shape "truck"          ; Truck
-      set color orange            ; Blue for trucks
-       set size 1.5              ; Size of the truck
-    ]
-    if vehicle-type = 2 [
-      set shape "car"     ; Motorcycle
-      set color orange           ; Green for motorcycles
-        set size 1.2                ; Size of the motorcycle
-    ]
-    if vehicle-type = 3 [
-      set shape "truck"          ; Truck
-      set color orange           ; Green for trucks
-        set size 1.5               ; Size of the truck
-    ]
-    if vehicle-type = 4 [
-      set shape "car"            ; Car
-      set color orange          ; Orange for cars
-        set size 1.2               ; Size of the car
-    ]
-    if vehicle-type = 5 [
-      set shape "truck"         ; Truck
-      set color orange            ; Gray for trucks
-        set size 1.2               ; Size of the truck
-    ]
+    set color red
+    set size 1.5
+    setxy -3.5 -16.5
+    set heading random 360
   ]
 end
 
-
-
-; --- Positionner les drones sur des routes ---
-; --- Positionner les drones sur le centre de distribution ---
+; --- Positionner les drones ---
 to setup-drones
-  create-drones nbrDrones [
+  create-drones 20 [
     setxy -3.5 -16.5     ; Placer les drones au centre de distribution
-    set size 2
-    set shape "hawk"      ; Forme des drones en "circle"
-    set color yellow        ; Couleur bleue pour les drones
-    set heading random 360 ; Orientation aléatoire
+    set size 1.2
+    set shape "hawk"
+    set color blue        ; Couleur bleue pour les drones
+    set heading random 360
   ]
 end
-
 
 ; --- Positionner les clients (zones de livraison) ---
 to setup-clients
- ; Placement de maisons (en bleu clair)
-  ask patches [
-    if (pxcor mod 5 != 0 and pycor mod 5 != 0) [
-      ifelse random-float 1 < 0.6 [
-        set pcolor black  ; Maisons (40% des patches non-routiers)
-      ][
-        set pcolor blue  ; Espaces vides (60% restant)
-      ]
+  ask n-of number-of-packages patches with [terrain-type = "zone-1" or terrain-type = "zone-2"] [
+    sprout-clients 1 [
+      set shape "person"
+      set size 1
+      set color yellow
     ]
-
   ]
- ; Choisir aléatoirement 10 patches avec pcolor bleu et les changer en jaune
-ask n-of nbrClientsInitial patches with [pcolor = blue] [
-  set pcolor yellow
-]
-
 end
 
-
 ; --- Exécution de la simulation ---
-; --- Déplacement des véhicules ---
 to go
-  ; Faire avancer les véhicules en fonction de la densité du trafic
-  ask vehicles [
-    let speed 1
-    ; Vérifier la densité de trafic sur le patch devant
-    if patch-ahead 1 != nobody [
-      let current-traffic [traffic-level] of patch-ahead 1
-      if current-traffic = 1 [set speed 0.5] ; Trafic faible
-      if current-traffic = 2 [set speed 0.3] ; Trafic moyen
-      if current-traffic = 3 [set speed 0.1] ; Trafic élevé
-    ]
-
-    ; Vérifier si le patch devant est une route ou une intersection
-    if [terrain-type] of patch-ahead 1 = "road" or [terrain-type] of patch-ahead 1 = "intersection" [
-      fd speed ; Avancer
-
-      ; Si le patch devant est une intersection, tourner aléatoirement à gauche ou à droite
-      if [terrain-type] of patch-ahead 1 = "intersection" [
-        let turn-direction random 3  ; Choisir aléatoirement 0 (gauche), 1 (droite), ou 2 (tout droit)
-        if turn-direction = 0 [
-          lt 90  ; Tourner à gauche
-        ]
-        if turn-direction = 1 [
-          rt 90  ; Tourner à droite
-        ]
-        ; Sinon continuer tout droit
+  ; Déplacement des drones
+  ask drones [
+    let nearest-client one-of clients-on patches with [terrain-type = "zone-1"]
+    if nearest-client != nobody [
+      face nearest-client
+      fd 1
+      if distance nearest-client < 1 [
+        ask nearest-client [die] ; Livraison du colis
       ]
     ]
-
-    ; Si le terrain n'est ni une route ni une intersection, ajuster la direction pour rester sur la route
-    if not ([terrain-type] of patch-ahead 1 = "road" or [terrain-type] of patch-ahead 1 = "intersection") [
-      right random 90  ; Tourner légèrement à droite
-      left random 90   ; Ou légèrement à gauche
-    ]
-
-    ; Ajuster l'orientation de la forme pour correspondre à la direction
-    set heading heading
   ]
 
-  ; Faire avancer les drones
-  ask drones [
-    fd 1  ; Les drones avancent d'un patch
+  ; Déplacement des véhicules
+  ask vehicles [
+    let nearest-client one-of clients-on patches with [terrain-type = "zone-2"]
+    if nearest-client != nobody [
+      face nearest-client
+      fd 0.5
+      if distance nearest-client < 1 [
+        ask nearest-client [die] ; Livraison du colis
+      ]
+    ]
   ]
 
   tick
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-350
-10
-1411
-682
+349
+13
+1410
+555
 -1
 -1
 13.0
@@ -231,8 +160,8 @@ GRAPHICS-WINDOW
 1
 -40
 40
--25
-25
+-20
+20
 0
 0
 1
@@ -240,10 +169,27 @@ ticks
 30.0
 
 BUTTON
-137
-47
-200
-80
+81
+40
+147
+73
+NIL
+setup
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+83
+107
+146
+140
 NIL
 go
 T
@@ -257,12 +203,12 @@ NIL
 1
 
 BUTTON
-27
-44
-93
-77
+105
+228
+203
+261
 NIL
-setup
+nbrDrones\n
 NIL
 1
 T
@@ -273,97 +219,39 @@ NIL
 NIL
 1
 
-SLIDER
-35
-113
+BUTTON
+111
+317
 207
-146
-nbrClientsInitial
-nbrClientsInitial
-1
-100
-16.0
-1
-1
+350
 NIL
-HORIZONTAL
-
-SLIDER
-37
-168
-209
-201
-nbrDrones
-nbrDrones
-0
-100
-13.0
-1
-1
+nbrClients
 NIL
-HORIZONTAL
-
-SLIDER
-42
-223
-214
-256
-nbrVehicules
-nbrVehicules
-0
-100
-10.0
 1
-1
-NIL
-HORIZONTAL
-
-MONITOR
-55
-292
-214
-337
-Nombre de commandes
-count( patches with [ pcolor = yellow ])
-17
-1
-11
-
-PLOT
-32
-353
-232
-503
-Nombre de commandes livrées par le temps
-temps
-commandes livrées
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -16777216 true "" "plot count turtles"
-
-PLOT
-37
-523
-237
-673
-comparaison de temps de livraison drones/vehicules
+T
+OBSERVER
 NIL
 NIL
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -16777216 true "" "plot count turtles"
+NIL
+NIL
+1
+
+BUTTON
+111
+392
+200
+425
+NIL
+nbrTruck
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -466,12 +354,12 @@ Line -16777216 false 150 105 105 60
 car
 false
 0
-Polygon -7500403 true true 0 180 21 164 39 144 60 135 74 132 87 106 97 84 115 63 141 50 165 50 225 60 300 150 300 165 300 225 0 225 0 180
-Circle -16777216 true false 30 180 90
+Polygon -7500403 true true 300 180 279 164 261 144 240 135 226 132 213 106 203 84 185 63 159 50 135 50 75 60 0 150 0 165 0 225 300 225 300 180
 Circle -16777216 true false 180 180 90
-Polygon -16777216 true false 138 80 168 78 166 135 91 135 106 105 111 96 120 89
-Circle -7500403 true true 195 195 58
+Circle -16777216 true false 30 180 90
+Polygon -16777216 true false 162 80 132 78 134 135 209 135 194 105 189 96 180 89
 Circle -7500403 true true 47 195 58
+Circle -7500403 true true 195 195 58
 
 circle
 false

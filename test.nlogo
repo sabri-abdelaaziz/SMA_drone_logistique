@@ -1,4 +1,8 @@
 ; --- Déclaration des variables globales ---
+;;********;;
+;; peux utilise slider pour spécifie nombre de client voiture pour livré color red ; les truck de livré color red ; nombre des drones
+;; les clients "les maison red" se situe sur building a coté de road
+;;********;;
 globals [
   distribution-center  ; Position du centre de distribution
   number-of-packages   ; Nombre de colis à livrer
@@ -24,22 +28,108 @@ to setup
   setup-distribution-center ; Configurer le centre de distribution au centre
   setup-vehicles            ; Positionner les véhicules
   setup-drones              ; Positionner les drones
-  setup-clients             ; Positionner les clients (zones de livraison)
+  ;setup-clients             ; Positionner les clients (zones de livraison)
+  creates-houses nbrClients
   reset-ticks
 end
+
+;; Fonction pour créer des maisons avec une condition sur les types de terrain
+to creates-houses [num-houses]
+  create-turtles num-houses [  ;; Créer un nombre défini de maisons
+    set shape "house"
+    set color blue      ;; Couleur des maisons
+    set size 0.5        ;; Taille des maisons
+
+    ;; Essayer de trouver une maison près de la route
+    let valid-position? false  ;; Variable pour vérifier si la maison est placée correctement
+
+    while [not valid-position?] [
+      let random-x random-xcor
+      let random-y random-ycor
+      let current-patch patch random-x random-y
+
+      ;; Vérifier si le patch n'est ni de type "road" ni de type "intersect"
+      if [terrain-type] of current-patch = "building"[
+
+        ;; Vérifier si l'un des voisins est une route ou un point d'intersection
+        let left-patch patch (pxcor - 1) pycor
+        let right-patch patch (pxcor + 1) pycor
+        let top-patch patch pxcor (pycor + 1)
+        let bottom-patch patch pxcor (pycor - 1)
+
+        ;; Si l'un des voisins est une route ou un point d'intersection, on place la maison
+        if ([terrain-type] of left-patch = "road" or [terrain-type] of right-patch = "road" or
+            [terrain-type] of top-patch = "road" or [terrain-type] of bottom-patch = "road") or
+           ([terrain-type] of left-patch = "intersect" or [terrain-type] of right-patch = "intersect" or
+            [terrain-type] of top-patch = "intersect" or [terrain-type] of bottom-patch = "intersect") [
+          move-to current-patch
+          set valid-position? true  ;; La position est valide, la maison est placée
+          set color red             ;; Couleur de la maison
+          set size 3                ;; Taille de la maison
+        ]
+      ]
+    ]
+  ]
+end
+
+
 
 ; --- Configuration des patches (routes, intersections, bâtiments, clients) ---
 to setup-patches
   ask patches [
-    if pxcor mod 5 = 0 or pycor mod 5 = 0 [
+    if pxcor mod 10 = 0 [
+
       set pcolor white         ; Définir comme route
       set terrain-type "road"
+
+      ;; Colorer le patch avant (x - 1) en gris, s'il existe
+    let left-patch patch (pxcor - 1) pycor
+    if left-patch != nobody [
+      ask left-patch [
+        set pcolor gray
+        set terrain-type "road"  ;; Optionnel : type de terrain pour différencier
+      ]
     ]
-    if (pxcor mod 10 = 0 and pycor mod 10 = 0) or (pxcor mod 5 = 0 and pycor mod 5 = 0) [
+
+    ;; Colorer le patch après (x + 1) en gris, s'il existe
+    let right-patch patch (pxcor + 1) pycor
+    if right-patch != nobody [
+      ask right-patch [
+        set pcolor gray
+        set terrain-type "road"  ;; Optionnel : type de terrain pour différencier
+      ]
+    ]
+
+    ]
+    if pycor mod 5 = 0 [
+       set pcolor grey         ; Définir comme route
+      set terrain-type "road"
+    ]
+
+    if (pxcor mod 10 = 0 and pycor mod 5 = 0)  [
       set pcolor gray          ; Définir comme intersection
       set terrain-type "intersection"
+
+      ;; changer le type a intersection
+    let l-patch patch (pxcor - 1) pycor
+    if l-patch != nobody [
+      ask l-patch [
+        set pcolor gray
+        set terrain-type "intersection"  ;; Optionnel : type de terrain pour différencier
+      ]
+  ]
+
+       ;; changer le type a intersection
+    let R-patch patch (pxcor + 1) pycor
+    if R-patch != nobody [
+      ask R-patch [
+        set pcolor gray
+        set terrain-type "intersection"  ;; Optionnel : type de terrain pour différencier
+      ]
     ]
-    if terrain-type = "" [
+
+    ]
+    if terrain-type = 0 [
       set pcolor black         ; Définir comme bâtiment
       set terrain-type "building"
     ]
@@ -54,7 +144,7 @@ to setup-distribution-center
     setxy -3.5 -16.5                   ; Placer la tortue au centre de la grille
     set shape "building store"          ; Définir la forme en carré
     set color yellow           ; Colorer la tortue en jaune pour le centre de distribution
-    set size 2             ; Agrandir la taille de la tortue
+    set size 3               ; Agrandir la taille de la tortue
   ]
 
   ; Marquer le patch central comme un centre de distribution
@@ -68,19 +158,19 @@ end
 ; --- Positionner les véhicules sur des routes ---
 to setup-vehicles
   ; Create red cars at the distribution center
-  create-vehicles 5 [
+  create-vehicles nbrVehicules [
     set shape "car"
     set color red             ; Red for cars
-      set size 0.2                ; Size of the car
+    set size 3                ; Size of the car
     setxy -3.5 -16.5         ; Set to the distribution center
     set heading random 360    ; Random orientation
   ]
 
   ; Create red trucks at the distribution center
-  create-vehicles 5 [
+  create-vehicles nbrTruck [
     set shape "truck"
     set color red             ; Red for trucks
-    set size 0.2                ; Size of the truck
+    set size 3                ; Size of the truck
     setxy -3.5 -16.5         ; Set to the distribution center
     set heading random 360    ; Random orientation
   ]
@@ -96,33 +186,33 @@ to setup-vehicles
     let vehicle-type random 5  ; Randomly choose 0, 1, or 2 for vehicle type
     if vehicle-type = 0 [
       set shape "car"            ; Car
-      set color orange            ; Pink for cars
-        set size 1.2               ; Size of the car
+      set color pink            ; Pink for cars
+      set size 2                ; Size of the car
     ]
     if vehicle-type = 1 [
       set shape "truck"          ; Truck
-      set color orange            ; Blue for trucks
-       set size 1.5              ; Size of the truck
+      set color blue            ; Blue for trucks
+      set size 2                ; Size of the truck
     ]
     if vehicle-type = 2 [
       set shape "car"     ; Motorcycle
-      set color orange           ; Green for motorcycles
-        set size 1.2                ; Size of the motorcycle
+      set color gray           ; Green for motorcycles
+      set size 2                ; Size of the motorcycle
     ]
     if vehicle-type = 3 [
       set shape "truck"          ; Truck
-      set color orange           ; Green for trucks
-        set size 1.5               ; Size of the truck
+      set color brown           ; Green for trucks
+      set size 2                ; Size of the truck
     ]
     if vehicle-type = 4 [
       set shape "car"            ; Car
       set color orange          ; Orange for cars
-        set size 1.2               ; Size of the car
+      set size 2                ; Size of the car
     ]
     if vehicle-type = 5 [
       set shape "truck"         ; Truck
-      set color orange            ; Gray for trucks
-        set size 1.2               ; Size of the truck
+      set color gray            ; Gray for trucks
+      set size 2                ; Size of the truck
     ]
   ]
 end
@@ -136,7 +226,7 @@ to setup-drones
     setxy -3.5 -16.5     ; Placer les drones au centre de distribution
     set size 2
     set shape "hawk"      ; Forme des drones en "circle"
-    set color yellow        ; Couleur bleue pour les drones
+    set color red        ; Couleur bleue pour les drones
     set heading random 360 ; Orientation aléatoire
   ]
 end
@@ -144,64 +234,56 @@ end
 
 ; --- Positionner les clients (zones de livraison) ---
 to setup-clients
- ; Placement de maisons (en bleu clair)
-  ask patches [
-    if (pxcor mod 5 != 0 and pycor mod 5 != 0) [
-      ifelse random-float 1 < 0.6 [
-        set pcolor black  ; Maisons (40% des patches non-routiers)
-      ][
-        set pcolor blue  ; Espaces vides (60% restant)
-      ]
+  create-clients 100 [               ; Create 200 clients
+    setxy random-xcor random-ycor    ; Position clients randomly
+    while [not (terrain-type = "road" or terrain-type = "intersection")] [  ; Ensure clients are on roads or intersections
+      setxy random-xcor random-ycor
     ]
-
+    set shape "house"                ; Default shape is "house"
+    set color green                  ; Default color is green
+    set size 2                     ; Default size
+    set label ""                     ; No label for clients
   ]
- ; Choisir aléatoirement 10 patches avec pcolor bleu et les changer en jaune
-ask n-of nbrClientsInitial patches with [pcolor = blue] [
-  set pcolor yellow
-]
+
 
 end
 
 
+
 ; --- Exécution de la simulation ---
-; --- Déplacement des véhicules ---
 to go
   ; Faire avancer les véhicules en fonction de la densité du trafic
   ask vehicles [
     let speed 1
-    ; Vérifier la densité de trafic sur le patch devant
     if patch-ahead 1 != nobody [
       let current-traffic [traffic-level] of patch-ahead 1
       if current-traffic = 1 [set speed 0.5] ; Trafic faible
       if current-traffic = 2 [set speed 0.3] ; Trafic moyen
       if current-traffic = 3 [set speed 0.1] ; Trafic élevé
     ]
-
     ; Vérifier si le patch devant est une route ou une intersection
-    if [terrain-type] of patch-ahead 1 = "road" or [terrain-type] of patch-ahead 1 = "intersection" [
-      fd speed ; Avancer
-
-      ; Si le patch devant est une intersection, tourner aléatoirement à gauche ou à droite
-      if [terrain-type] of patch-ahead 1 = "intersection" [
-        let turn-direction random 3  ; Choisir aléatoirement 0 (gauche), 1 (droite), ou 2 (tout droit)
-        if turn-direction = 0 [
-          lt 90  ; Tourner à gauche
-        ]
-        if turn-direction = 1 [
-          rt 90  ; Tourner à droite
-        ]
-        ; Sinon continuer tout droit
+    if [terrain-type] of patch-ahead 1 = "road" [; or [terrain-type] of patch-ahead 1 = "intersection"
+      fd speed
+    ]
+       ; Si le patch devant est une intersection, tourner aléatoirement à gauche ou à droite
+    if [terrain-type] of patch-ahead 1 = "intersection" [
+      let turn-direction random 2  ; Choisir aléatoirement 0 ou 1
+      if turn-direction = 0 [
+        rt 90  ; Tourner à droite
+      ]
+      if turn-direction = 1 [
+        lt 90  ; Tourner à gauche
+      ]
+      if turn-direction = 2 [
+        fd speed  ; Tourner à droite
       ]
     ]
 
-    ; Si le terrain n'est ni une route ni une intersection, ajuster la direction pour rester sur la route
-    if not ([terrain-type] of patch-ahead 1 = "road" or [terrain-type] of patch-ahead 1 = "intersection") [
-      right random 90  ; Tourner légèrement à droite
-      left random 90   ; Ou légèrement à gauche
+    ;; pour circuler les vehicule sur les routes et intersect
+     if not( [terrain-type] of patch-ahead 1 = "road" or [terrain-type] of patch-ahead 1 = "intersection" )[
+      right random 90  ; Tourner à droite de façon aléatoire
+      left random 90   ; Ou tourner à gauche de façon aléatoire
     ]
-
-    ; Ajuster l'orientation de la forme pour correspondre à la direction
-    set heading heading
   ]
 
   ; Faire avancer les drones
@@ -213,26 +295,26 @@ to go
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-350
-10
-1411
-682
+186
+146
+1409
+650
 -1
 -1
-13.0
+15.0
 1
-10
+2
 1
 1
 1
 0
-1
-1
+0
+0
 1
 -40
 40
--25
-25
+-16
+16
 0
 0
 1
@@ -240,27 +322,10 @@ ticks
 30.0
 
 BUTTON
-137
-47
-200
-80
-NIL
-go
-T
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-BUTTON
-27
-44
-93
-77
+43
+28
+109
+61
 NIL
 setup
 NIL
@@ -273,97 +338,82 @@ NIL
 NIL
 1
 
-SLIDER
-35
-113
-207
-146
-nbrClientsInitial
-nbrClientsInitial
-1
-100
-16.0
-1
-1
+BUTTON
+65
+119
+128
+152
 NIL
-HORIZONTAL
+go
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 SLIDER
-37
-168
-209
-201
-nbrDrones
-nbrDrones
+74
+216
+246
+249
+nbrClients
+nbrClients
 0
 100
-13.0
+50.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-42
-223
-214
-256
+75
+310
+247
+343
 nbrVehicules
 nbrVehicules
 0
 100
-10.0
+50.0
 1
 1
 NIL
 HORIZONTAL
 
-MONITOR
-55
-292
-214
-337
-Nombre de commandes
-count( patches with [ pcolor = yellow ])
-17
+SLIDER
+136
+388
+308
+421
+nbrDrones
+nbrDrones
+0
+100
+50.0
 1
-11
-
-PLOT
-32
-353
-232
-503
-Nombre de commandes livrées par le temps
-temps
-commandes livrées
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -16777216 true "" "plot count turtles"
-
-PLOT
-37
-523
-237
-673
-comparaison de temps de livraison drones/vehicules
+1
 NIL
+HORIZONTAL
+
+SLIDER
+119
+507
+291
+540
+nbrTruck
+nbrTruck
+0
+100
+50.0
+1
+1
 NIL
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -16777216 true "" "plot count turtles"
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -466,12 +516,12 @@ Line -16777216 false 150 105 105 60
 car
 false
 0
-Polygon -7500403 true true 0 180 21 164 39 144 60 135 74 132 87 106 97 84 115 63 141 50 165 50 225 60 300 150 300 165 300 225 0 225 0 180
-Circle -16777216 true false 30 180 90
+Polygon -7500403 true true 300 180 279 164 261 144 240 135 226 132 213 106 203 84 185 63 159 50 135 50 75 60 0 150 0 165 0 225 300 225 300 180
 Circle -16777216 true false 180 180 90
-Polygon -16777216 true false 138 80 168 78 166 135 91 135 106 105 111 96 120 89
-Circle -7500403 true true 195 195 58
+Circle -16777216 true false 30 180 90
+Polygon -16777216 true false 162 80 132 78 134 135 209 135 194 105 189 96 180 89
 Circle -7500403 true true 47 195 58
+Circle -7500403 true true 195 195 58
 
 circle
 false

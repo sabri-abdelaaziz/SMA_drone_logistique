@@ -1,4 +1,6 @@
 ; --- Déclaration des variables globales ---
+extensions [sound]
+
 globals [
   distribution-center  ; Position du centre de distribution
   number-of-packages   ; Nombre de colis à livrer
@@ -177,7 +179,7 @@ to deliver-cars
   create-vehicles 1 [
     setxy [pxcor] of center-patch [pycor] of center-patch  ; Position vehicles at the center patch
     set color yellow                                       ; Set delivery car color to yellow
-    set size 3
+    set size 2
     set shape "car"                                        ; Optional: Set the shape of the vehicle
   ]
 end
@@ -186,30 +188,44 @@ end
 
 
 to check-delivery
-  ask vehicles with [color = yellow] [  ; Seules les voitures de livraison jaunes effectuent l'action
-    let delivery-range patches in-radius 7  ; Ajuster le rayon si nécessaire
+  ask vehicles with [color = yellow] [  ; Only yellow delivery vehicles perform the action
+    let delivery-range patches in-radius 3  ; Adjust the range if necessary
 
     ifelse any? delivery-range with [pcolor = yellow] [
-      ask delivery-range with [pcolor = yellow] [ ; Cibler uniquement les patches clients encore jaunes
-        set pcolor blue                           ; Marquer le patch comme livré
-        print ("Commande livrée au patch: " ) ; Log pour débogage (optionnel)
+      ask delivery-range with [pcolor = yellow] [  ; Target only yellow patches (clients)
+        set pcolor blue                            ; Mark the patch as delivered
+        print ("Commande livrée au patch: ")       ; Optional log for debugging
+
+        ; Play a beep sound for successful delivery
+         sound:play-note "TRUMPET" 60 64 0.5
       ]
     ] [
-      ; Si aucune commande dans la portée, vérifier s'il reste des commandes globales
+      ; If no orders in range, check if any global orders remain
       if not any? patches with [pcolor = yellow] [
         print "Toutes les commandes ont été livrées. Retour au centre de distribution."
-        move-to center-patch  ; Retourner la voiture au centre
-        set color gray        ; Changer la couleur pour indiquer qu'elle est inactive
+        move-to center-patch  ; Return the vehicle to the center
+        set color gray        ; Change the color to indicate inactivity
+
+        ; Play a beep sound for returning to the center
+        sound:play-note "TRUMPET" 60 64 0.5
       ]
     ]
   ]
 
-  ; Vérifier si toutes les commandes sont livrées
+  ; Check if all orders are delivered
   if not any? patches with [pcolor = yellow] [
     print "Toutes les commandes ont été livrées. Création de nouvelles commandes et d'une nouvelle voiture."
-    create-new-orders-and-vehicle  ; Appeler une procédure pour gérer les nouvelles commandes et voitures
+
+    ; Play a beep sound for completing all orders
+     sound:play-note "TRUMPET" 60 64 0.5
+
+    create-new-orders-and-vehicle  ; Call a procedure to handle new orders and vehicles
   ]
 end
+
+
+
+
 
 to create-new-orders-and-vehicle
   ; Créer de nouvelles commandes (patches jaunes)
@@ -251,7 +267,13 @@ to go
     let dyx [pycor] of target - pycor
 
     ; Determine the preferred direction (horizontal or vertical) to move closer
-
+    ifelse abs dxx > abs dyx [
+  if dxx > 0 [set heading 90]       ; Move east
+  if dxx < 0 [set heading 270]      ; Move west
+] [
+  if dyx > 0 [set heading 0]        ; Move north
+  if dyx < 0 [set heading 180]      ; Move south
+]
 
 
     ; Ensure the vehicle stays on roads or intersections
@@ -280,31 +302,12 @@ to go
 
 
   ; Move other vehicles randomly
-  ask vehicles with [color != yellow] [
-    let speed 1
-    if patch-ahead 1 != nobody [
-      let current-traffic [traffic-level] of patch-ahead 1
-      if current-traffic = 1 [set speed 0.5] ; Low traffic
-      if current-traffic = 2 [set speed 0.3] ; Medium traffic
-      if current-traffic = 3 [set speed 0.1] ; High traffic
-    ]
-    let attempts 0
-    while [not ([terrain-type] of patch-ahead 1 = "road" or
-                [terrain-type] of patch-ahead 1 = "intersection") and attempts < 5] [
-      rt random 45  ; Ajuster légèrement la direction
-      set attempts attempts + 1
-    ]
-    ifelse [terrain-type] of patch-ahead speed = "road" or [terrain-type] of patch-ahead speed = "intersection" [
-      fd speed
-    ] [
-      rt random 45  ; Turn slightly if the path ahead is not valid
-    ]
-  ]
+
+
   check-delivery
 
   tick
 end
-
 
 
 @#$#@#$#@

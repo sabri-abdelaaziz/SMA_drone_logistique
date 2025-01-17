@@ -16,6 +16,13 @@ patches-own [
   traffic-level ; Niveau de trafic (de 0 à 3)
 ]
 
+; --- Déclaration des variables ---
+vehicles-own [
+  delivery-target  ; Cible actuelle du véhicule (patch client)
+  delivering       ; Statut de livraison (true/false)
+]
+
+
 ; --- Initialisation des propriétés des patches ---
 to setup
   clear-all
@@ -175,20 +182,52 @@ to deliver-cars
   ]
 end
 
+
+
+
 to check-delivery
-  ask vehicles with [color = yellow] [  ; Only the delivery car (yellow) performs this action
-    let delivery-range patches in-radius 7  ; Adjust the radius as needed
+  ask vehicles with [color = yellow] [  ; Seules les voitures de livraison jaunes effectuent l'action
+    let delivery-range patches in-radius 7  ; Ajuster le rayon si nécessaire
 
     ifelse any? delivery-range with [pcolor = yellow] [
-      ask delivery-range with [pcolor = yellow] [ ; Target only client patches still yellow
-        set pcolor blue                           ; Mark the patch as delivered
-        print ("Order delivered at patch: " ) ; Optional: Log the delivery for debugging
+      ask delivery-range with [pcolor = yellow] [ ; Cibler uniquement les patches clients encore jaunes
+        set pcolor blue                           ; Marquer le patch comme livré
+        print ("Commande livrée au patch: " ) ; Log pour débogage (optionnel)
       ]
     ] [
-      sto  ; Stop if no yellow patches are found in the delivery range
+      ; Si aucune commande dans la portée, vérifier s'il reste des commandes globales
+      if not any? patches with [pcolor = yellow] [
+        print "Toutes les commandes ont été livrées. Retour au centre de distribution."
+        move-to center-patch  ; Retourner la voiture au centre
+        set color gray        ; Changer la couleur pour indiquer qu'elle est inactive
+      ]
     ]
   ]
+
+  ; Vérifier si toutes les commandes sont livrées
+  if not any? patches with [pcolor = yellow] [
+    print "Toutes les commandes ont été livrées. Création de nouvelles commandes et d'une nouvelle voiture."
+    create-new-orders-and-vehicle  ; Appeler une procédure pour gérer les nouvelles commandes et voitures
+  ]
 end
+
+to create-new-orders-and-vehicle
+  ; Créer de nouvelles commandes (patches jaunes)
+  ask n-of 10 patches [  ; Ajuster le nombre de commandes créées
+    set pcolor yellow
+  ]
+
+  ; Créer une nouvelle voiture de livraison
+  create-vehicles 1 [
+    setxy [pxcor] of center-patch [pycor] of center-patch  ; Positionner la voiture au patch central
+    set color yellow
+    set size 3
+    set shape "car"  ; Optionnel : définir la forme de la voiture
+  ]
+
+  print "Nouvelles commandes et nouvelle voiture créées."
+end
+
 
 
 
@@ -198,54 +237,74 @@ end
 ; --- Exécution de la simulation ---
 ; --- Déplacement des véhicules ---
 to go
-  ; Faire avancer les véhicules en fonction de la densité du trafic
-  ask vehicles [
+  ; Make delivering cars move logically towards clients
+ ask vehicles with [color = yellow] [
+  ; Only delivering vehicles
+  ; Check if there are any remaining clients
+  ifelse any? patches with [pcolor = yellow] [
+    ; Find the nearest client (patch with pcolor = yellow)
+    let target min-one-of patches with [pcolor = yellow] [distance myself]
+
+
+    ; Calculate the direction to the target
+    let dxx [pxcor] of target - pxcor
+    let dyx [pycor] of target - pycor
+
+    ; Determine the preferred direction (horizontal or vertical) to move closer
+
+
+
+    ; Ensure the vehicle stays on roads or intersections
+    let attempts 0  ; Counter for attempts to move forward
+    while [not ([terrain-type] of patch-ahead 1 = "road" or
+                [terrain-type] of patch-ahead 1 = "intersection") and attempts < 5] [
+      rt random 45   ; Adjust direction slightly
+      set attempts  attempts + 1
+    ]
+    ifelse attempts < 5 [
+      fd 1  ; Move forward if a valid road is found
+    ]  [
+      print (word "Vehicle at " self " couldn't find a valid road")
+    ]
+  ] [
+    ; If no clients remain, return to the distribution center
+    let center-patchz one-of patches with [terrain-type = "distribution-center"]
+    ifelse center-patchz != nobody [
+      move-to center-patch
+      set color gray ; Mark the vehicle as inactive
+    ]  [
+      print "No distribution center found!"
+    ]
+  ]
+]
+
+
+  ; Move other vehicles randomly
+  ask vehicles with [color != yellow] [
     let speed 1
-    ; Vérifier la densité de trafic sur le patch devant
     if patch-ahead 1 != nobody [
       let current-traffic [traffic-level] of patch-ahead 1
-      if current-traffic = 1 [set speed 0.5] ; Trafic faible
-      if current-traffic = 2 [set speed 0.3] ; Trafic moyen
-      if current-traffic = 3 [set speed 0.1] ; Trafic élevé
+      if current-traffic = 1 [set speed 0.5] ; Low traffic
+      if current-traffic = 2 [set speed 0.3] ; Medium traffic
+      if current-traffic = 3 [set speed 0.1] ; High traffic
     ]
-
-    ; Vérifier si le patch devant est une route ou une intersection
-    if [terrain-type] of patch-ahead 1 = "road" or [terrain-type] of patch-ahead 1 = "intersection" [
-      fd speed ; Avancer
-
-      ; Si le patch devant est une intersection, tourner aléatoirement à gauche ou à droite
-      if [terrain-type] of patch-ahead 1 = "intersection" [
-        let turn-direction random 3  ; Choisir aléatoirement 0 (gauche), 1 (droite), ou 2 (tout droit)
-        if turn-direction = 0 [
-          lt 90  ; Tourner à gauche
-        ]
-        if turn-direction = 1 [
-          rt 90  ; Tourner à droite
-        ]
-        ; Sinon continuer tout droit
-      ]
+    let attempts 0
+    while [not ([terrain-type] of patch-ahead 1 = "road" or
+                [terrain-type] of patch-ahead 1 = "intersection") and attempts < 5] [
+      rt random 45  ; Ajuster légèrement la direction
+      set attempts attempts + 1
     ]
-
-    ; Si le terrain n'est ni une route ni une intersection, ajuster la direction pour rester sur la route
-    if not ([terrain-type] of patch-ahead 1 = "road" or [terrain-type] of patch-ahead 1 = "intersection") [
-      right random 90  ; Tourner légèrement à droite
-      left random 90   ; Ou légèrement à gauche
+    ifelse [terrain-type] of patch-ahead speed = "road" or [terrain-type] of patch-ahead speed = "intersection" [
+      fd speed
+    ] [
+      rt random 45  ; Turn slightly if the path ahead is not valid
     ]
-
-    ; Ajuster l'orientation de la forme pour correspondre à la direction
-    set heading heading
   ]
-
-  ; Faire avancer les drones
-  ask drones [
-    fd 1  ; Les drones avancent d'un patch
-  ]
-
-
   check-delivery
 
   tick
 end
+
 
 
 @#$#@#$#@
@@ -319,7 +378,7 @@ nbrClientsInitial
 nbrClientsInitial
 1
 100
-31.0
+7.0
 1
 1
 NIL

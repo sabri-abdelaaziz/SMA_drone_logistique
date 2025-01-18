@@ -204,10 +204,13 @@ to check-delivery
       if not any? patches with [pcolor = yellow] [
         print "Toutes les commandes ont été livrées. Retour au centre de distribution."
         move-to center-patch  ; Return the vehicle to the center
-        set color gray        ; Change the color to indicate inactivity
-
+        set color red        ; Change the color to indicate inactivity
+        set size 1
         ; Play a beep sound for returning to the center
         sound:play-note "TRUMPET" 60 64 0.5
+
+        ; Generate new orders and a new delivery vehicle
+
       ]
     ]
   ]
@@ -215,15 +218,16 @@ to check-delivery
   ; Check if all orders are delivered
   if not any? patches with [pcolor = yellow] [
     print "Toutes les commandes ont été livrées. Création de nouvelles commandes et d'une nouvelle voiture."
-
+    ask vehicles with [color = yellow] [
+     set color orange
+      set size 1
+    ]
     ; Play a beep sound for completing all orders
      sound:play-note "TRUMPET" 60 64 0.5
-
-    create-new-orders-and-vehicle  ; Call a procedure to handle new orders and vehicles
+     create-new-orders-and-vehicle
+   ; create-new-orders-and-vehicle  ; Call a procedure to handle new orders and vehicles
   ]
 end
-
-
 
 
 
@@ -248,19 +252,14 @@ end
 
 
 
-
-
-; --- Exécution de la simulation ---
-; --- Déplacement des véhicules ---
 to go
   ; Make delivering cars move logically towards clients
- ask vehicles with [color = yellow] [
+ask vehicles with [color = yellow] [
   ; Only delivering vehicles
   ; Check if there are any remaining clients
   ifelse any? patches with [pcolor = yellow] [
     ; Find the nearest client (patch with pcolor = yellow)
     let target min-one-of patches with [pcolor = yellow] [distance myself]
-
 
     ; Calculate the direction to the target
     let dxx [pxcor] of target - pxcor
@@ -268,33 +267,34 @@ to go
 
     ; Determine the preferred direction (horizontal or vertical) to move closer
     ifelse abs dxx > abs dyx [
-  if dxx > 0 [set heading 90]       ; Move east
-  if dxx < 0 [set heading 270]      ; Move west
-] [
-  if dyx > 0 [set heading 0]        ; Move north
-  if dyx < 0 [set heading 180]      ; Move south
-]
-
+      if dxx > 0 [set heading 90]       ; Move east
+      if dxx < 0 [set heading 270]      ; Move west
+    ] [
+      if dyx > 0 [set heading 0]        ; Move north
+      if dyx < 0 [set heading 180]      ; Move south
+    ]
 
     ; Ensure the vehicle stays on roads or intersections
-    let attempts 0  ; Counter for attempts to move forward
-    while [not ([terrain-type] of patch-ahead 1 = "road" or
-                [terrain-type] of patch-ahead 1 = "intersection") and attempts < 5] [
+    let attempts 0  ; Counter for attempts to find valid heading
+    while [not can-move-on-road? 1 and attempts < 5] [
       rt random 45   ; Adjust direction slightly
-      set attempts  attempts + 1
+      set attempts attempts + 1
     ]
-    ifelse attempts < 5 [
+    ifelse can-move-on-road? 1 [
       fd 1  ; Move forward if a valid road is found
-    ]  [
-      print (word "Vehicle at " self " couldn't find a valid road")
+    ] [
+      ; Fallback mechanism if stuck
+      rt random 360  ; Completely randomize direction
+      fd 1           ; Force a move to get unstuck
+      print (word "Vehicle at " self " was stuck and forced to move")
     ]
   ] [
     ; If no clients remain, return to the distribution center
-    let center-patchz one-of patches with [terrain-type = "distribution-center"]
-    ifelse center-patchz != nobody [
-      move-to center-patch
-      set color gray ; Mark the vehicle as inactive
-    ]  [
+    let center-patchs one-of patches with [terrain-type = "distribution-center"]
+    ifelse center-patchs != nobody [
+      move-to center-patchs
+      set color red ; Mark the vehicle as inactive
+    ] [
       print "No distribution center found!"
     ]
   ]
@@ -302,48 +302,40 @@ to go
 
 
   ; Move other vehicles randomly
- ask vehicles with [color != yellow] [
-  let speed 1
-  ; Check the traffic level on the patch ahead
-  if patch-ahead 1 != nobody [
-    let current-traffic [traffic-level] of patch-ahead 1
-    if current-traffic = 1 [set speed 3] ; Low traffic
-    if current-traffic = 2 [set speed 2] ; Medium traffic
-    if current-traffic = 3 [set speed 1] ; High traffic
-  ]
-
-  ; Check if the terrain ahead is valid, try to find a valid direction if blocked
-  let attempts 0
-  while [not ([terrain-type] of patch-ahead 1 = "road" or
-              [terrain-type] of patch-ahead 1 = "intersection") and attempts < 5] [
-    rt random 45  ; Slightly adjust direction
-
-    set attempts attempts + 1
-  ]
-
-  ; Movement logic
-  ifelse [terrain-type] of patch-ahead 1 = "road" or [terrain-type] of patch-ahead 1 = "intersection" [
-    fd speed
-  ] [
-    rt random 45  ; Turn slightly if the path ahead is not valid
-  ]
-
-  ; Additional logic to handle blocked vehicles
-  if speed = 0 [  ; If the vehicle is not moving
-    let attempts-to-move 0
-    while [attempts-to-move < 10 and not can-move? 1] [
-      rt random 45  ; Try random directions
-      set attempts-to-move attempts-to-move + 1
+  ask vehicles with [color != yellow] [
+    let speed 1
+    ; Check the traffic level on the patch ahead
+    if patch-ahead 1 != nobody [
+      let current-traffic [traffic-level] of patch-ahead 1
+      if current-traffic = 1 [set speed 3] ; Low traffic
+      if current-traffic = 2 [set speed 2] ; Medium traffic
+      if current-traffic = 3 [set speed 1] ; High traffic
     ]
-    if can-move? 1 [fd 1]  ; Move forward if a valid direction is found
+
+    ; Ensure the vehicle stays on roads or intersections
+    let attempts 0
+    while [not can-move-on-road? speed and attempts < 5] [
+      rt random 45  ; Slightly adjust direction
+      set attempts attempts + 1
+    ]
+
+    ifelse attempts < 5 [
+      fd speed
+    ] [
+      rt random 45  ; If no valid direction found, turn slightly
+    ]
   ]
-]
 
   check-delivery
 
   tick
 end
 
+; Helper function to check if the patch in the heading direction is valid
+to-report can-move-on-road? [distancee]
+  report [terrain-type] of patch-ahead distancee = "road" or
+         [terrain-type] of patch-ahead distancee = "intersection"
+end
 
 @#$#@#$#@
 GRAPHICS-WINDOW

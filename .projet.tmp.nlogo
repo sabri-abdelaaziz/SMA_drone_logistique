@@ -24,6 +24,7 @@ vehicles-own [
   delivering       ; Statut de livraison (true/false)
 ]
 
+
 ; --- Initialisation des propriétés des patches ---
 to setup
   clear-all
@@ -81,7 +82,7 @@ to setup-vehicles
   create-vehicles 5 [
     set shape "car"
     set color red             ; Red for cars
-    set size 0.2                ; Size of the car
+      set size 0.2                ; Size of the car
     setxy -3.5 -16.5         ; Set to the distribution center
     set heading random 360    ; Random orientation
   ]
@@ -107,59 +108,54 @@ to setup-vehicles
     if vehicle-type = 0 [
       set shape "car"            ; Car
       set color orange            ; Pink for cars
-      set size 1.2               ; Size of the car
+        set size 1.2               ; Size of the car
     ]
     if vehicle-type = 1 [
       set shape "truck"          ; Truck
       set color orange            ; Blue for trucks
-      set size 1.5              ; Size of the truck
+       set size 1.5              ; Size of the truck
     ]
     if vehicle-type = 2 [
       set shape "car"     ; Motorcycle
       set color orange           ; Green for motorcycles
-      set size 1.2                ; Size of the motorcycle
+        set size 1.5                ; Size of the motorcycle
     ]
     if vehicle-type = 3 [
       set shape "truck"          ; Truck
       set color orange           ; Green for trucks
-      set size 1.5               ; Size of the truck
+        set size 1.5               ; Size of the truck
     ]
     if vehicle-type = 4 [
       set shape "car"            ; Car
       set color orange          ; Orange for cars
-      set size 1.2               ; Size of the car
+        set size 1.5               ; Size of the car
     ]
     if vehicle-type = 5 [
       set shape "truck"         ; Truck
       set color orange            ; Gray for trucks
-      set size 1.2               ; Size of the truck
+        set size 1.5              ; Size of the truck
     ]
   ]
 end
 
+
+
 ; --- Positionner les drones sur des routes ---
+; --- Positionner les drones sur le centre de distribution ---
 to setup-drones
-  create-drones 5 [
+  create-drones nbrDrones [
     setxy -3.5 -16.5     ; Placer les drones au centre de distribution
-    set size 2
+    set size 1.5
     set shape "hawk"      ; Forme des drones en "circle"
-    set color yellow      ; Couleur bleue pour les drones
+    set color yellow        ; Couleur bleue pour les drones
     set heading random 360 ; Orientation aléatoire
   ]
 end
 
 
-to deliver-cars
-  create-vehicles 1 [
-    setxy [pxcor] of center-patch [pycor] of center-patch  ; Position vehicles at the center patch
-    set color yellow                                       ; Set delivery car color to yellow
-    set size 3
-    set shape "car"                                        ; Optional: Set the shape of the vehicle
-  ]
-end
-
 ; --- Positionner les clients (zones de livraison) ---
 to setup-clients
+ ; Placement de maisons (en bleu clair)
   ask patches [
     if (pxcor mod 5 != 0 and pycor mod 5 != 0) [
       ifelse random-float 1 < 0.6 [
@@ -168,33 +164,53 @@ to setup-clients
         set pcolor blue  ; Espaces vides (60% restant)
       ]
     ]
+
   ]
-  ask n-of 10 patches with [pcolor = blue] [
-    set pcolor yellow
+ ; Choisir aléatoirement 10 patches avec pcolor bleu et les changer en jaune
+ask n-of nbrClientsInitial patches with [pcolor = blue] [
+  set pcolor yellow
+]
+
+end
+
+
+
+to deliver-cars
+  create-vehicles 1 [
+    setxy [pxcor] of center-patch [pycor] of center-patch  ; Position vehicles at the center patch
+    set color yellow                                       ; Set delivery car color to yellow
+    set size 1.5
+    set shape "car"                                        ; Optional: Set the shape of the vehicle
   ]
 end
 
-; --- Fonction de livraison des colis ---
+
+
+
 to check-delivery
   ask vehicles with [color = yellow] [  ; Only yellow delivery vehicles perform the action
     let delivery-range patches in-radius 3  ; Adjust the range if necessary
+
     ifelse any? delivery-range with [pcolor = yellow] [
       ask delivery-range with [pcolor = yellow] [  ; Target only yellow patches (clients)
         set pcolor blue                            ; Mark the patch as delivered
         print ("Commande livrée au patch: ")       ; Optional log for debugging
 
         ; Play a beep sound for successful delivery
-        sound:play-note "TRUMPET" 60 64 0.5
+         sound:play-note "TRUMPET" 60 64 0.5
       ]
     ] [
       ; If no orders in range, check if any global orders remain
       if not any? patches with [pcolor = yellow] [
         print "Toutes les commandes ont été livrées. Retour au centre de distribution."
         move-to center-patch  ; Return the vehicle to the center
-        set color gray        ; Change the color to indicate inactivity
-
+        set color red        ; Change the color to indicate inactivity
+        set size 1.5
         ; Play a beep sound for returning to the center
         sound:play-note "TRUMPET" 60 64 0.5
+
+        ; Generate new orders and a new delivery vehicle
+
       ]
     ]
   ]
@@ -202,12 +218,19 @@ to check-delivery
   ; Check if all orders are delivered
   if not any? patches with [pcolor = yellow] [
     print "Toutes les commandes ont été livrées. Création de nouvelles commandes et d'une nouvelle voiture."
-    sound:play-note "TRUMPET" 60 64 0.5
-    create-new-orders-and-vehicle  ; Call a procedure to handle new orders and vehicles
+    ask vehicles with [color = yellow] [
+     set color orange
+      set size 1.5
+    ]
+    ; Play a beep sound for completing all orders
+     sound:play-note "TRUMPET" 60 64 0.5
+     create-new-orders-and-vehicle
+   ; create-new-orders-and-vehicle  ; Call a procedure to handle new orders and vehicles
   ]
 end
 
-; --- Créer de nouvelles commandes et une nouvelle voiture ---
+
+
 to create-new-orders-and-vehicle
   ; Créer de nouvelles commandes (patches jaunes)
   ask n-of 10 patches [  ; Ajuster le nombre de commandes créées
@@ -218,33 +241,100 @@ to create-new-orders-and-vehicle
   create-vehicles 1 [
     setxy [pxcor] of center-patch [pycor] of center-patch  ; Positionner la voiture au patch central
     set color yellow
-    set size 3
+    set size 1.2
     set shape "car"  ; Optionnel : définir la forme de la voiture
   ]
 
   print "Nouvelles commandes et nouvelle voiture créées."
 end
 
-; --- Exécution de la simulation ---
+
+
+
+
 to go
   ; Make delivering cars move logically towards clients
-  ask vehicles with [color = yellow] [
-    ; Only delivering vehicles
-    ifelse any? patches with [pcolor = yellow] [
-      let target min-one-of patches with [pcolor = yellow] [distance myself] ; Find nearest delivery target
-      move-to target ; Move to delivery target
-      set delivering true
+ask vehicles with [color = yellow] [
+  ; Only delivering vehicles
+  ; Check if there are any remaining clients
+  ifelse any? patches with [pcolor = yellow] [
+    ; Find the nearest client (patch with pcolor = yellow)
+    let target min-one-of patches with [pcolor = yellow] [distance myself]
+
+    ; Calculate the direction to the target
+    let dxx [pxcor] of target - pxcor
+    let dyx [pycor] of target - pycor
+
+    ; Determine the preferred direction (horizontal or vertical) to move closer
+    ifelse abs dxx > abs dyx [
+      if dxx > 0 [set heading 90]       ; Move east
+      if dxx < 0 [set heading 270]      ; Move west
+    ] [
+      if dyx > 0 [set heading 0]        ; Move north
+      if dyx < 0 [set heading 180]      ; Move south
     ]
-    else [
-      ; Car has delivered, now return to the center
-      set delivering false
-      move-to center-patch
+
+    ; Ensure the vehicle stays on roads or intersections
+    let attempts 0  ; Counter for attempts to find valid heading
+    while [not can-move-on-road? 1 and attempts < 5] [
+      rt random 45   ; Adjust direction slightly
+      set attempts attempts + 1
+    ]
+    ifelse can-move-on-road? 1 [
+      fd 1  ; Move forward if a valid road is found
+    ] [
+      ; Fallback mechanism if stuck
+      rt random 360  ; Completely randomize direction
+      fd 1           ; Force a move to get unstuck
+      print (word "Vehicle at " self " was stuck and forced to move")
+    ]
+  ] [
+    ; If no clients remain, return to the distribution center
+    let center-patchs one-of patches with [terrain-type = "distribution-center"]
+    ifelse center-patchs != nobody [
+      move-to center-patchs
+      set color red ; Mark the vehicle as inactive
+    ] [
+      print "No distribution center found!"
+    ]
+  ]
+]
+
+
+  ; Move other vehicles randomly
+  ask vehicles with [color != yellow] [
+    let speed 1
+    ; Check the traffic level on the patch ahead
+    if patch-ahead 1 != nobody [
+      let current-traffic [traffic-level] of patch-ahead 1
+      if current-traffic = 1 [set speed 3] ; Low traffic
+      if current-traffic = 2 [set speed 2] ; Medium traffic
+      if current-traffic = 3 [set speed 1] ; High traffic
+    ]
+
+    ; Ensure the vehicle stays on roads or intersections
+    let attempts 0
+    while [not can-move-on-road? speed and attempts < 5] [
+      rt random 45  ; Slightly adjust direction
+      set attempts attempts + 1
+    ]
+
+    ifelse attempts < 5 [
+      fd speed
+    ] [
+      rt random 45  ; If no valid direction found, turn slightly
     ]
   ]
 
-  ; Check delivery status for cars
   check-delivery
+
   tick
+end
+
+; Helper function to check if the patch in the heading direction is valid
+to-report can-move-on-road? [distancee]
+  report [terrain-type] of patch-ahead distancee = "road" or
+         [terrain-type] of patch-ahead distancee = "intersection"
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -380,7 +470,7 @@ true
 false
 "" ""
 PENS
-"default" 1.0 0 -16777216 true "" "plot count turtles"
+"default" 1.0 0 -16777216 true "" "count( patches with [ pcolor = yellow ])"
 
 PLOT
 37

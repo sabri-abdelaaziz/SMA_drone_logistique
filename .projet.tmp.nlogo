@@ -231,22 +231,6 @@ end
 
 
 
-to create-new-orders-and-vehicle
-  ; Créer de nouvelles commandes (patches jaunes)
-  ask n-of 10 patches [  ; Ajuster le nombre de commandes créées
-    set pcolor yellow
-  ]
-
-  ; Créer une nouvelle voiture de livraison
-  create-vehicles 1 [
-    setxy [pxcor] of center-patch [pycor] of center-patch  ; Positionner la voiture au patch central
-    set color yellow
-    set size 1.2
-    set shape "car"  ; Optionnel : définir la forme de la voiture
-  ]
-
-  print "Nouvelles commandes et nouvelle voiture créées."
-end
 
 
 
@@ -470,7 +454,7 @@ true
 false
 "" ""
 PENS
-"default" 1.0 0 -16777216 true "" "count( patches with [ pcolor = yellow ])"
+"default" 1.0 0 -16777216 true "" "plot count( patches with [ pcolor = yellow ])"
 
 PLOT
 37
